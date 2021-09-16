@@ -1,12 +1,22 @@
 import argparse
-from os import path
+from os import path, makedirs, listdir, remove, getenv
 import sys
 import requests
+from zipfile import ZipFile
 
 RUNDIRECTORY = path.dirname(__file__)
+TEMPDIRECTORY = path.join(RUNDIRECTORY, 'temp_downloads')
+
+print(TEMPDIRECTORY)
+
 sys.path.append(RUNDIRECTORY)
 
 from setup import log
+
+
+class Job:
+    pass
+
 
 class JobExecutor:
 
@@ -26,12 +36,30 @@ class JobExecutor:
             self.do(url)
 
     def do(self, url):
+        archive = self.__download(url)
+        result = self.__extract_zip(archive)
+        result
+
+
+    def __download(self, url):
         filename = url.split('/')[-1]
+        filepath = path.join(TEMPDIRECTORY, filename)
+
+        if not path.exists(TEMPDIRECTORY):
+            makedirs(TEMPDIRECTORY)
+        if path.exists(filepath):
+            remove(filepath)
+            log.debug(f'{filepath} overwrited!')
         r = requests.get(url, allow_redirects=True)
-        filepath = path.join(self.output, filename)
-        print(filepath)
-        # open('google.ico', 'wb').write(r.content)
-        log.info(f'downloading {url}')
+        open(filepath, 'wb').write(r.content)
+        log.info(f'{url} downloaded')
+        return filepath
+
+    def __extract_zip(self, archive):
+        with ZipFile(archive, 'r') as file:
+            file.extractall(TEMPDIRECTORY)
+            log.info(f'{archive} extracted')
+            return True
 
     def __get_url_list(self):
         if not all([path.exists(self.urlfile), path.isfile(self.urlfile)]):
@@ -40,7 +68,6 @@ class JobExecutor:
             with open(self.urlfile) as urlfile:
                 urlist = [l.rstrip() for l in urlfile.readlines()]
                 return urlist
-
 
 
 if __name__ == '__main__':
