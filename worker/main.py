@@ -151,14 +151,30 @@ class Job:
             log.info(f'{self}: Mesh {mesh.name}: transforms applied')
 
     def import_fbx(self):
+        fbxfiles = []
         for filepath in self.extractedfiles:
-            if re.search('.*.fbx$', filepath):
-                try:
-                    bpy.ops.import_scene.fbx(filepath=filepath)
-                    log.info(f'{self}: FBX imported')
-                except:
-                    log.warning(f'{self}: Cannot import {filepath}')
+            if re.match('.*.fbx$', filepath):
+                fbxfiles.append(filepath)
+        if len(fbxfiles) == 1:
+            filepath = fbxfiles.pop()
+            try:
+                bpy.ops.import_scene.fbx(filepath=filepath)
+                log.info(f'{self}: FBX imported')
+                if not self.get_scene_meshes():
+                    log.warning(f'No meshes in FBX file')
                     self.error = True
+            except:
+                log.warning(f'{self}: Cannot import {filepath}')
+                self.error = True
+        elif not fbxfiles:
+            log.warning(f'{self}: no FBX file in archive')
+            self.error = True
+        elif len(fbxfiles) > 1:
+            log.warning(f'{self}: more than one FBX file')
+            self.error = True
+        else:
+            log.warning(f'{self}: weird thing during FBX import')
+            self.error = True
 
     def download(self):
         filename = self.url.split('/')[-1]
@@ -177,7 +193,7 @@ class Job:
                 self.error = True
                 log.warning(f'{self}: URL is broken')
         except requests.exceptions.ConnectTimeout as e:
-            log.warning(f'{self}: URL not accessible!')
+            log.warning(f'{self}: URL is not accessible!')
             self.error = True
 
     def extract_zip(self):
