@@ -11,12 +11,10 @@ import re
 RUNDIRECTORY = path.dirname(__file__)
 TEMPDIRECTORY = path.join(RUNDIRECTORY, 'temp_downloads')
 
-sys.path.append(RUNDIRECTORY)
-
 formatter = logging.Formatter("%(name)s - %(asctime)s - [%(levelname)s] - %(message)s")
 log = logging.getLogger('APP')
 log.setLevel(logging.INFO)
-fileHandler = logging.FileHandler("{0}/{1}.log".format(TEMPDIRECTORY, 'log'))
+fileHandler = logging.FileHandler("{0}/{1}.log".format(RUNDIRECTORY, 'processing'))
 fileHandler.setFormatter(formatter)
 consolehandler = logging.StreamHandler()
 consolehandler.setFormatter(formatter)
@@ -39,12 +37,14 @@ class Job:
                        self.get_fbx_materials,
                        self.linktextures,
                        self.export_fbx,
-                       self.copy_textures
+                       self.copy_textures,
+                       self.cleanup_downloads,
                        ]
         self.url = kwargs.get('url')
         self.output = kwargs.get('output')
         self.error = None
         self.archive = ''
+        self.extract_path = ''
         self.tempassetpath = ''
         self.extractedfiles = []
         self.materials = []
@@ -54,22 +54,30 @@ class Job:
         self.outputdir = path.join(self.output, self.assetname)
 
     def __repr__(self):
-        return self.archivename
+        return f'Asset {self.archivename}'
 
     def do(self):
-        log.info(f'Job {self}: Start Processing...')
+        log.info(f'{self}: Start Processing...')
         while not any([self.error, not self.stages]):
             stage = self.stages.pop(0)
             stage()
         if self.error:
-            log.error(f'Job {self}: Processing Failed')
+            log.error(f'{self}: Processing Failed')
+            self.cleanup_downloads()
         else:
-            log.info(f'Job {self}: Processing Completed')
+            log.info(f'{self}: Processing Completed')
 
     def init_project(self):
         bpy.ops.wm.read_homefile(app_template="")
         data = bpy.data.objects
         [data.remove(x, do_unlink=True) for x in bpy.context.scene.objects]  
+
+    def cleanup_downloads(self):
+        if path.exists(self.archive):
+            remove(self.archive)
+        if path.exists(self.extract_path):
+            shutil.rmtree(self.extract_path)
+        log.info(f'{self}: Downloads Deleted')
 
     def copy_textures(self):
         if self.textures:
@@ -115,7 +123,6 @@ class Job:
             if texchannel == 'O':
                 # I really dunno which channel is Opacity in Blender's Principled BSDF
                 pass
-
 
         if self.materials:
             for mat in self.materials:
@@ -175,16 +182,16 @@ class Job:
 
     def extract_zip(self):
         with ZipFile(self.archive, 'r') as file:
-            extract_path = path.join(TEMPDIRECTORY, self.assetname)
+            self.extract_path = path.join(TEMPDIRECTORY, self.assetname)
             root_folder = path.commonprefix(file.namelist())
-            if not path.exists(extract_path):
-                makedirs(extract_path)
+            if not path.exists(self.extract_path):
+                makedirs(self.extract_path)
                 log.debug(f'{self}: extraction path created')
-            file.extractall(extract_path)
+            file.extractall(self.extract_path)
             log.info(f'{self}: archive extracted')
-            result = extract_path
+            result = self.extract_path
             if root_folder: #for case when files in subdirectory
-                result = path.join(extract_path, root_folder)
+                result = path.join(self.extract_path, root_folder)
             self.tempassetpath = result
             self.extractedfiles = [path.join(self.tempassetpath, x) for x in listdir(self.tempassetpath)]
 
@@ -193,7 +200,6 @@ class Job:
 
 
 class JobExecutor:
-
     jobs = []
 
     def __init__(self, *args):
