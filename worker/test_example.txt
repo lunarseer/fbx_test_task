@@ -5,3 +5,5 @@ http://127.0.0.1:5000/files/58de157b.zip
 http://127.0.0.1:5000/files/58de157c.zip
 http://127.0.0.1:5000/files/58de157g.zip
 http://127.0.0.1:5000/files/58de157e.zip
+http://127.0.0.1:5000/files/58de157z.zip
+http://94.0.15.1:5000/files/58de157z.zip

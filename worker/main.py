@@ -57,14 +57,14 @@ class Job:
         return self.archivename
 
     def do(self):
-        log.info(f'Job {self} - Start Processing...')
+        log.info(f'Job {self}: Start Processing...')
         while not any([self.error, not self.stages]):
             stage = self.stages.pop(0)
             stage()
         if self.error:
-            log.error(f'Job {self} - Processing Failed!')
+            log.error(f'Job {self}: Processing Failed')
         else:
-            log.info(f'Job {self} - Processing Completed')
+            log.info(f'Job {self}: Processing Completed')
 
     def init_project(self):
         bpy.ops.wm.read_homefile(app_template="")
@@ -72,9 +72,10 @@ class Job:
         [data.remove(x, do_unlink=True) for x in bpy.context.scene.objects]  
 
     def copy_textures(self):
-        for tex in self.textures:
-            shutil.copy2(tex, path.join(self.outputdir, path.basename(tex)))
-        log.info(f'{self} - Textures copied to output dir')
+        if self.textures:
+            for tex in self.textures:
+                shutil.copy2(tex, path.join(self.outputdir, path.basename(tex)))
+            log.info(f'{self}: Textures copied to output dir')
 
     def export_fbx(self):
         if path.exists(self.outputdir):
@@ -86,7 +87,7 @@ class Job:
             log.debug(f'{self}: output dir created')
         fbxfilepath = path.join(self.outputdir, f'{self.assetname}.fbx')
         bpy.ops.export_scene.fbx(filepath=fbxfilepath)
-        log.info(f'{self} - FBX exported to output dir')
+        log.info(f'{self}: FBX exported to output dir')
 
     def linktextures(self):
         imageextpat = re.compile(".*.jpg$|.*.png$")
@@ -158,13 +159,19 @@ class Job:
 
         if path.exists(filepath):
             remove(filepath)
-            log.debug(f'{self} file overwrited!')
-
-        r = requests.get(self.url, allow_redirects=True)
-        open(filepath, 'wb').write(r.content)
-
-        log.info(f'{self}: archive downloaded')
-        self.archive = filepath
+            log.debug(f'{self}: archive file overwrited')
+        try:
+            r = requests.get(self.url, allow_redirects=True, timeout=1)
+            if r.status_code == 200:
+                open(filepath, 'wb').write(r.content)
+                log.info(f'{self}: archive downloaded')
+                self.archive = filepath
+            elif r.status_code == 404:
+                self.error = True
+                log.warning(f'{self}: URL is broken')
+        except requests.exceptions.ConnectTimeout as e:
+            log.warning(f'{self}: URL not accessible!')
+            self.error = True
 
     def extract_zip(self):
         with ZipFile(self.archive, 'r') as file:
@@ -172,7 +179,7 @@ class Job:
             root_folder = path.commonprefix(file.namelist())
             if not path.exists(extract_path):
                 makedirs(extract_path)
-                log.debug(f'{self}: exctraction path created')
+                log.debug(f'{self}: extraction path created')
             file.extractall(extract_path)
             log.info(f'{self}: archive extracted')
             result = extract_path
@@ -212,10 +219,9 @@ class JobExecutor:
                                                      er=len([x for x in self.jobs if x.error])
                                                      ))
 
-
     def __get_url_list(self):
         if not all([path.exists(self.urlfile), path.isfile(self.urlfile)]):
-            raise FileNotFoundError(f'{self.urlfile} Not Exists!')
+            raise FileNotFoundError(f'{self.urlfile} Not Exists')
         else:
             with open(self.urlfile) as urlfile:
                 urlist = [l.rstrip() for l in urlfile.readlines()]

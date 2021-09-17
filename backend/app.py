@@ -2,7 +2,7 @@ import os
 import re
 
 
-from flask import Flask, request, abort, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, json
 
 
 
@@ -30,4 +30,10 @@ def get_file(path):
     """
     file download endpoint
     """
-    return send_from_directory(FILESDIRECTORY, path, as_attachment=True)
+    if os.path.exists(os.path.join(FILESDIRECTORY, path)):
+        return send_from_directory(FILESDIRECTORY, path, as_attachment=True)
+    return app.response_class(
+                              response=json.dumps({'message': 'Not Found'}),
+                              status=404,
+                              mimetype='application/json'
+                              )
