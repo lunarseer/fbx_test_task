@@ -121,8 +121,10 @@ class Job:
                 texture.image = bpy.data.images.load(tex)
                 mat.node_tree.links.new(texture_input, texture.outputs['Color'])
             if texchannel == 'O':
-                # I really dunno which channel is Opacity in Blender's Principled BSDF
-                pass
+                texture_input = shader_node.inputs.get('Alpha')
+                texture = mat.node_tree.nodes.new('ShaderNodeTexImage')
+                texture.image = bpy.data.images.load(tex)
+                mat.node_tree.links.new(texture_input, texture.outputs['Color'])
 
         if self.materials:
             for mat in self.materials:
