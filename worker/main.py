@@ -116,15 +116,17 @@ class Job:
                 mat.node_tree.links.new(texture_input, texture.outputs['Color'])
             if texchannel == 'N':
                 links = shader_node.inputs.get('Normal').links[0]
+                normalmapnode = links.from_node
                 texture_input = links.from_node.inputs.get('Color')
                 texture = mat.node_tree.nodes.new('ShaderNodeTexImage')
+                normalmapnode.inputs.get('Strength').default_value = 1
                 texture.image = bpy.data.images.load(tex)
                 mat.node_tree.links.new(texture_input, texture.outputs['Color'])
             if texchannel == 'O':
-                texture_input = shader_node.inputs.get('Alpha')
+                texture_input = shader_node.inputs['Alpha']
                 texture = mat.node_tree.nodes.new('ShaderNodeTexImage')
                 texture.image = bpy.data.images.load(tex)
-                mat.node_tree.links.new(texture_input, texture.outputs['Color'])
+                mat.node_tree.links.new(texture_input, texture.outputs['Alpha'])
 
         if self.materials:
             for mat in self.materials:
